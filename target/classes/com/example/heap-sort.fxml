@@ -13,6 +13,12 @@
         <Insets top="10" right="10" bottom="10" left="10"/>
     </padding>
 
+    <!-- Phase Status Label -->
+    <HBox spacing="10" alignment="CENTER" style="-fx-background-color: #f0f0f0; -fx-padding: 10;">
+        <Label text="현재 단계:" style="-fx-font-weight: bold;"/>
+        <Label fx:id="phaseLabel" text="대기 중" style="-fx-font-weight: bold; -fx-font-size: 14;"/>
+    </HBox>
+
     <!-- Input Area -->
     <HBox spacing="10">
          <HBox spacing="10">

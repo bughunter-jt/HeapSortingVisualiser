@@ -40,6 +40,7 @@ public class HeapSortController {
     @FXML private Button autoButton;
     @FXML private Label statusLabel;
     @FXML private HBox dataArrayContainer;
+    @FXML private Label phaseLabel;
 
     private List<int[]> steps;
     private int currentStep = 0;
@@ -50,6 +51,8 @@ public class HeapSortController {
     private double animationDuration = 0.5;
     private Map<Integer, Circle> dataArrayCircles;
     private Map<Integer, Label> dataArrayLabels;
+    private int inputArrayLength; // 입력 배열의 길이 저장
+    private int maxHeapLastStepIndex; // Max Heap 완성 단계 인덱스
 
     @FXML
     public void initialize() {
@@ -65,6 +68,9 @@ public class HeapSortController {
         prevButton.setOnAction(e -> showPreviousStep());
         nextButton.setOnAction(e -> showNextStep());
         autoButton.setOnAction(e -> toggleAutoPlay());
+        
+        // 초기 단계 설정
+        phaseLabel.setText("대기 중");
     }
 
     private void handleSort() {
@@ -133,29 +139,24 @@ public class HeapSortController {
     private void startSorting(int[] array) {
         stopAutoPlay();
         steps = new ArrayList<>();
-        
-        // Add initial empty array
+        inputArrayLength = array.length;
+        maxHeapLastStepIndex = -1;
         steps.add(new int[0]);
-        
-        // Initialize data array display
         initializeDataArray(array);
-        
-        // 1단계: 힙 구성 (Heapify)
+        phaseLabel.setText("Max Heap 구성 중");
+        statusLabel.setText("데이터를 Max Heap에 추가하는 중...");
         int[] currentArray = new int[0];
+        // 1. Max Heap 구성 단계
         for (int i = 0; i < array.length; i++) {
             currentArray = new int[i + 1];
             System.arraycopy(array, 0, currentArray, 0, i + 1);
             steps.add(currentArray.clone());
-            
-            // 새로 추가된 노드를 부모와 비교하며 힙 속성 유지
             int currentIndex = i;
             while (currentIndex > 0) {
                 int parentIndex = (currentIndex - 1) / 2;
-                // 비교 단계 추가
+                // 비교 단계
                 steps.add(currentArray.clone());
-                
                 if (currentArray[currentIndex] > currentArray[parentIndex]) {
-                    // 교환
                     int temp = currentArray[currentIndex];
                     currentArray[currentIndex] = currentArray[parentIndex];
                     currentArray[parentIndex] = temp;
@@ -166,38 +167,32 @@ public class HeapSortController {
                 }
             }
         }
-
-        // 2단계: 힙 정렬 (Heap Sort)
+        // 2. Max Heap 완성 단계(딱 한 번만)
+        steps.add(currentArray.clone());
+        maxHeapLastStepIndex = steps.size() - 1;
+        // 3. 정렬 단계
         int[] heapArray = currentArray.clone();
         int heapSize = heapArray.length;
-        
-        // 힙에서 최대값을 하나씩 추출하여 정렬
         for (int i = heapSize - 1; i > 0; i--) {
-            // 루트(최대값)와 마지막 노드 교환
+            // swap root <-> i
             int temp = heapArray[0];
             heapArray[0] = heapArray[i];
             heapArray[i] = temp;
             steps.add(heapArray.clone());
-
-            // 힙 속성 복원
+            // heapify
             int currentIndex = 0;
             while (true) {
                 int largest = currentIndex;
                 int left = 2 * currentIndex + 1;
                 int right = 2 * currentIndex + 2;
-
-                // 비교 단계 추가
+                // 비교 단계
                 steps.add(heapArray.clone());
-
-                // 현재 노드와 자식 노드들 중 최대값 찾기
                 if (left < i && heapArray[left] > heapArray[largest]) {
                     largest = left;
                 }
                 if (right < i && heapArray[right] > heapArray[largest]) {
                     largest = right;
                 }
-
-                // 최대값이 현재 노드가 아니면 교환
                 if (largest != currentIndex) {
                     temp = heapArray[currentIndex];
                     heapArray[currentIndex] = heapArray[largest];
@@ -209,7 +204,6 @@ public class HeapSortController {
                 }
             }
         }
-        
         currentStep = 0;
         updateNavigationButtons();
         drawTree();
@@ -239,39 +233,16 @@ public class HeapSortController {
     }
 
     private void animateDataToHeap(int dataIndex, int heapIndex, Runnable onComplete) {
-        System.out.println("animateDataToHeap 호출됨");
-        
-        // 데이터 배열이 비어있는지 체크
         if (dataArrayContainer == null || dataArrayContainer.getChildren().isEmpty()) {
-            System.out.println("데이터 배열이 비어있음");
-            if (onComplete != null) {
-                System.out.println("onComplete 호출됨");
-                onComplete.run();
-            }
+            if (onComplete != null) onComplete.run();
             return;
         }
 
-        // 데이터 배열의 노드가 존재하는지 체크
         if (!dataArrayCircles.containsKey(dataIndex)) {
-            System.out.println("데이터 배열에서 노드를 찾을 수 없음: " + dataIndex);
-            if (onComplete != null) {
-                System.out.println("onComplete 호출됨");
-                onComplete.run();
-            }
+            if (onComplete != null) onComplete.run();
             return;
         }
 
-        // 힙 트리의 목적지 위치가 유효한지 체크
-        if (heapIndex < 0) {
-            System.out.println("힙 트리 인덱스가 유효하지 않음: " + heapIndex);
-            if (onComplete != null) {
-                System.out.println("onComplete 호출됨");
-                onComplete.run();
-            }
-            return;
-        }
-
-        System.out.println("dataIndex: " + dataIndex + ", heapIndex: " + heapIndex);
         Circle dataCircle = dataArrayCircles.get(dataIndex);
         Label dataLabel = dataArrayLabels.get(dataIndex);
 
@@ -342,43 +313,23 @@ public class HeapSortController {
         parallelTransition.setOnFinished(e -> {
             treePane.getChildren().remove(animPane);
             
-            try {
-                // 데이터 배열에서 노드 제거 (페이드 아웃 효과)
-                StackPane dataNode = (StackPane) dataArrayContainer.getChildren().get(dataIndex);
-                FadeTransition removeTransition = new FadeTransition(Duration.seconds(animationDuration * 0.5), dataNode);
-                removeTransition.setFromValue(1.0);
-                removeTransition.setToValue(0.0);
-                
-                removeTransition.setOnFinished(event -> {
-                    // 데이터 배열에서 노드 제거
-                    dataArrayContainer.getChildren().remove(dataNode);
-                    
-                    // 맵에서 노드 제거
-                    dataArrayCircles.remove(dataIndex);
-                    dataArrayLabels.remove(dataIndex);
-                    
-                    // 데이터 배열 재구성
-                    rebuildDataArray();
-                    
-                    if (onComplete != null) {
-                        System.out.println("onComplete 호출됨");
-                        onComplete.run();
-                    }
-                });
-                
-                removeTransition.play();
-            } catch (IndexOutOfBoundsException ex) {
-                System.out.println("노드 제거 중 오류 발생: " + ex.getMessage());
-                // 오류 발생 시에도 데이터 배열 재구성 시도
+            // 데이터 배열에서 노드 제거 (페이드 아웃 효과)
+            StackPane dataNode = (StackPane) dataArrayContainer.getChildren().get(dataIndex);
+            FadeTransition removeTransition = new FadeTransition(Duration.seconds(animationDuration * 0.5), dataNode);
+            removeTransition.setFromValue(1.0);
+            removeTransition.setToValue(0.0);
+            
+            removeTransition.setOnFinished(event -> {
+                dataArrayContainer.getChildren().remove(dataNode);
+                dataArrayCircles.remove(dataIndex);
+                dataArrayLabels.remove(dataIndex);
                 rebuildDataArray();
-                if (onComplete != null) {
-                    System.out.println("onComplete 호출됨");
-                    onComplete.run();
-                }
-            }
+                if (onComplete != null) onComplete.run();
+            });
+            
+            removeTransition.play();
         });
 
-        // 애니메이션 시작
         parallelTransition.play();
     }
 
@@ -452,98 +403,94 @@ public class HeapSortController {
 
     private void drawTree() {
         if (steps == null || steps.isEmpty() || currentStep >= steps.size()) {
-            System.out.println("Invalid step state: steps=" + (steps == null ? "null" : steps.size()) + 
-                             ", currentStep=" + currentStep);
+            System.out.println("Invalid step state: steps=" + (steps == null ? "null" : steps.size()) + ", currentStep=" + currentStep);
+            if (steps != null && !steps.isEmpty()) {
+                currentStep = steps.size() - 1;
+                updateNavigationButtons();
+            }
             return;
         }
-
-        // 트리 패널 초기화
         treePane.getChildren().clear();
         nodeCircles = new HashMap<>();
         nodeLabels = new HashMap<>();
-
-        // 현재 단계의 배열 가져오기
         int[] currentArray = steps.get(currentStep);
         if (currentArray == null) {
             System.out.println("Current array is null at step " + currentStep);
             return;
         }
-        
-        // Tree size calculation
+        // 단계별 메시지
+        if (currentStep < maxHeapLastStepIndex) {
+            phaseLabel.setText("Max Heap 구성 중");
+            statusLabel.setText(String.format("데이터를 Max Heap에 추가하는 중... (%d/%d)", currentArray.length, inputArrayLength));
+        } else if (currentStep == maxHeapLastStepIndex) {
+            phaseLabel.setText("Max Heap 구성 완료");
+            statusLabel.setText("Max Heap 구성이 완료되었습니다. 정렬을 시작합니다.");
+        } else if (currentStep > maxHeapLastStepIndex && currentStep < steps.size() - 1) {
+            phaseLabel.setText("정렬 중");
+            statusLabel.setText(String.format("정렬 중... (Step %d / %d)", currentStep - maxHeapLastStepIndex, steps.size() - maxHeapLastStepIndex));
+        } else {
+            phaseLabel.setText("정렬 완료");
+            statusLabel.setText("정렬 완료!");
+        }
         int nodeRadius = 25;
         int levelHeight = 80;
-        
-        // 트리 높이 계산 수정
         int treeHeight = 0;
         int totalNodes = 0;
         while (totalNodes < currentArray.length) {
             totalNodes += (int) Math.pow(2, treeHeight);
             treeHeight++;
         }
-        
         int maxNodesInLevel = (int) Math.pow(2, treeHeight - 1);
         double paneWidth = treePane.getWidth();
-        double paneHeight = treePane.getHeight();
-        
-        // Node spacing calculation
         double horizontalSpacing = paneWidth / (maxNodesInLevel + 1);
-        double startX = horizontalSpacing;
         double startY = 50;
-
-        // Draw nodes at each level
         for (int level = 0; level < treeHeight; level++) {
             int nodesInLevel = (int) Math.pow(2, level);
             double levelWidth = nodesInLevel * horizontalSpacing;
             double levelStartX = (paneWidth - levelWidth) / 2 + horizontalSpacing / 2;
-
             for (int nodeIndex = 0; nodeIndex < nodesInLevel; nodeIndex++) {
                 int index = (int) Math.pow(2, level) - 1 + nodeIndex;
-                
-                // 배열 범위 체크
-                if (index >= currentArray.length) {
-                    // 현재 레벨의 나머지 노드들은 건너뛰기
-                    break;
-                }
-
+                if (index >= currentArray.length) break;
                 double x = levelStartX + nodeIndex * horizontalSpacing;
                 double y = startY + level * levelHeight;
-
-                // Draw circle node
                 Circle circle = new Circle(x, y, nodeRadius);
-                circle.setFill(Color.LIGHTBLUE);
+                if (currentStep < maxHeapLastStepIndex) {
+                    circle.setFill(Color.LIGHTBLUE);
+                } else if (currentStep == maxHeapLastStepIndex) {
+                    circle.setFill(Color.GREEN);
+                } else {
+                    circle.setFill(Color.LIGHTGREEN);
+                }
                 circle.setStroke(Color.BLACK);
                 nodeCircles.put(index, circle);
-
-                // Draw value label
                 Label valueLabel = new Label(String.valueOf(currentArray[index]));
                 valueLabel.setLayoutX(x - 10);
                 valueLabel.setLayoutY(y - 10);
                 nodeLabels.put(index, valueLabel);
-
                 treePane.getChildren().addAll(circle, valueLabel);
-
-                // Draw parent-child connection line
                 if (level > 0) {
                     int parentIndex = (index - 1) / 2;
-                    
-                    // 부모 노드가 유효한 범위 내에 있는지 확인
                     if (parentIndex >= 0 && parentIndex < currentArray.length) {
                         Circle parentCircle = nodeCircles.get(parentIndex);
-                        
                         if (parentCircle != null) {
                             Line line = new Line();
                             line.setStartX(parentCircle.getCenterX());
                             line.setStartY(parentCircle.getCenterY() + nodeRadius);
                             line.setEndX(x);
                             line.setEndY(y - nodeRadius);
-                            line.setStroke(Color.GRAY);
+                            if (currentStep < maxHeapLastStepIndex) {
+                                line.setStroke(Color.GRAY);
+                            } else if (currentStep == maxHeapLastStepIndex) {
+                                line.setStroke(Color.GREEN);
+                            } else {
+                                line.setStroke(Color.DARKGREEN);
+                            }
                             treePane.getChildren().add(line);
                         }
                     }
                 }
             }
         }
-        statusLabel.setText(String.format("Step %d / %d", currentStep + 1, steps.size()));
     }
 
     private void showPreviousStep() {
@@ -559,69 +506,116 @@ public class HeapSortController {
             int[] prevArray = steps.get(currentStep);
             int[] nextArray = steps.get(currentStep + 1);
             
-            // 새 노드 추가 시
-            if (prevArray.length < nextArray.length) {
-                int newIndex = prevArray.length;
+            // Max Heap 구성 단계
+            if (currentStep < maxHeapLastStepIndex) {
+                phaseLabel.setText("Max Heap 구성 중");
+                statusLabel.setText(String.format("데이터를 Max Heap에 추가하는 중... (%d/%d)", nextArray.length, inputArrayLength));
                 
-                // 데이터 배열의 실제 인덱스 계산
-                int dataArrayIndex = 0;  // 항상 첫 번째 노드부터 시작
-                
-                // 데이터 배열에서 힙으로 이동
-                animateDataToHeap(dataArrayIndex, newIndex, () -> {
-                    // 새 노드 강조
-                    highlightNewNode(newIndex, () -> {
-                        // 부모 노드와 비교
-                        int parentIndex = (newIndex - 1) / 2;
-                        if (parentIndex >= 0) {
-                            // 현재 노드와 부모 노드만 비교
-                            highlightComparingNodesForSwap(newIndex, parentIndex, () -> {
-                                currentStep++;
-                                updateNavigationButtons();
-                                drawTree();
-                            });
-                        } else {
-                            // 루트 노드인 경우
-                            currentStep++;
-                            updateNavigationButtons();
-                            drawTree();
-                        }
-                    });
-                });
-                return;
-            }
-            
-            // 노드 교환 시
-            boolean foundSwap = false;
-            for (int i = 0; i < prevArray.length; i++) {
-                if (prevArray[i] != nextArray[i]) {
-                    for (int j = 0; j < prevArray.length; j++) {
-                        if (j != i && prevArray[j] != nextArray[j]) {
-                            final int finalI = i;
-                            final int finalJ = j;
-                            // 비교 노드 강조
-                            highlightComparingNodesForSwap(finalI, finalJ, () -> {
-                                // 교환 실행
-                                animateSwap(finalI, finalJ, () -> {
+                // 새로운 노드가 추가되는 경우
+                if (prevArray.length < nextArray.length) {
+                    int newIndex = prevArray.length;
+                    int dataArrayIndex = 0;  // 항상 첫 번째 노드부터 시작
+                    
+                    // 데이터 배열에서 힙으로 이동하는 애니메이션
+                    animateDataToHeap(dataArrayIndex, newIndex, () -> {
+                        // 새 노드 강조 효과
+                        highlightNewNode(newIndex, () -> {
+                            // 부모 노드와 비교
+                            int parentIndex = (newIndex - 1) / 2;
+                            if (parentIndex >= 0) {
+                                phaseLabel.setText("부모 노드와 비교 중");
+                                statusLabel.setText("새로 추가된 노드를 부모 노드와 비교하는 중...");
+                                highlightComparingNodesForSwap(newIndex, parentIndex, () -> {
                                     currentStep++;
                                     updateNavigationButtons();
                                     drawTree();
                                 });
-                            });
-                            foundSwap = true;
-                            return;
+                            } else {
+                                currentStep++;
+                                updateNavigationButtons();
+                                drawTree();
+                            }
+                        });
+                    });
+                    return;
+                }
+                
+                // 노드 교환 단계
+                for (int i = 0; i < prevArray.length; i++) {
+                    if (prevArray[i] != nextArray[i]) {
+                        for (int j = 0; j < prevArray.length; j++) {
+                            if (j != i && prevArray[j] != nextArray[j]) {
+                                final int finalI = i;
+                                final int finalJ = j;
+                                highlightComparingNodesForSwap(finalI, finalJ, () -> {
+                                    animateSwap(finalI, finalJ, () -> {
+                                        currentStep++;
+                                        updateNavigationButtons();
+                                        drawTree();
+                                    });
+                                });
+                                return;
+                            }
                         }
                     }
                 }
-            }
-            
-            // 비교만 있는 경우
-            if (!foundSwap) {
+                
+                // 비교만 있는 경우
                 highlightComparingNodes(prevArray, nextArray, () -> {
                     currentStep++;
                     updateNavigationButtons();
                     drawTree();
                 });
+                return;
             }
+            
+            // Max Heap 완성 단계
+            if (currentStep == maxHeapLastStepIndex) {
+                phaseLabel.setText("Max Heap 구성 완료");
+                statusLabel.setText("Max Heap 구성이 완료되었습니다. 정렬을 시작합니다.");
+                highlightMaxHeapComplete(() -> {
+                    currentStep++;
+                    updateNavigationButtons();
+                    drawTree();
+                });
+                return;
+            }
+            
+            // 정렬 단계
+            if (currentStep > maxHeapLastStepIndex) {
+                phaseLabel.setText("정렬 중");
+                statusLabel.setText("정렬 중...");
+                boolean foundSwap = false;
+                for (int i = 0; i < prevArray.length; i++) {
+                    if (prevArray[i] != nextArray[i]) {
+                        for (int j = 0; j < prevArray.length; j++) {
+                            if (j != i && prevArray[j] != nextArray[j]) {
+                                final int finalI = i;
+                                final int finalJ = j;
+                                highlightComparingNodesForSwap(finalI, finalJ, () -> {
+                                    animateSwap(finalI, finalJ, () -> {
+                                        currentStep++;
+                                        updateNavigationButtons();
+                                        drawTree();
+                                    });
+                                });
+                                foundSwap = true;
+                                return;
+                            }
+                        }
+                    }
+                }
+                if (!foundSwap) {
+                    highlightComparingNodes(prevArray, nextArray, () -> {
+                        currentStep++;
+                        updateNavigationButtons();
+                        drawTree();
+                    });
+                }
+            }
+        } else {
+            phaseLabel.setText("정렬 완료");
+            statusLabel.setText("정렬 완료!");
         }
     }
 
@@ -793,26 +787,38 @@ public class HeapSortController {
                     }),
                     // 4단계: 최종 상태
                     new KeyFrame(Duration.seconds(animationDuration), e -> {
-                        circle.setFill(Color.HOTPINK);
-                        circle.setStroke(Color.DEEPPINK);
-                        circle.setStrokeWidth(4);
+                        circle.setFill(Color.LIGHTBLUE);
+                        circle.setStroke(Color.BLACK);
+                        circle.setStrokeWidth(1);
                         circle.setOpacity(1.0);
-                        if (onComplete != null) {
-                            onComplete.run();
-                        }
+                        if (onComplete != null) onComplete.run();
                     })
                 );
                 timeline.play();
             } else {
-                if (onComplete != null) {
-                    onComplete.run();
-                }
+                if (onComplete != null) onComplete.run();
             }
         } else {
+            if (onComplete != null) onComplete.run();
+        }
+    }
+
+    private void highlightMaxHeapComplete(Runnable onComplete) {
+        // 모든 노드를 초록색으로 강조
+        for (Circle circle : nodeCircles.values()) {
+            circle.setFill(Color.GREEN);
+        }
+        
+        // 1초 후에 원래 색상으로 복원
+        Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
+            for (Circle circle : nodeCircles.values()) {
+                circle.setFill(Color.LIGHTBLUE);
+            }
             if (onComplete != null) {
                 onComplete.run();
             }
-        }
+        }));
+        timeline.play();
     }
 
     private void updateNavigationButtons() {
