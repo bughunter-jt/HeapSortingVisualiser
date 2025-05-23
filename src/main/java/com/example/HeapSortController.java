@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import javafx.animation.RotateTransition;
 
 public class HeapSortController {
     @FXML private TextField inputField;
@@ -246,30 +247,30 @@ public class HeapSortController {
         Label dataLabel = dataArrayLabels.get(dataIndex);
         Label heapLabel = nodeLabels.get(heapIndex);
 
-        // Create a copy of the data circle for animation
+        // 애니메이션용 원 생성
         Circle animCircle = new Circle(dataCircle.getRadius());
         animCircle.setFill(Color.HOTPINK);
         animCircle.setStroke(Color.DEEPPINK);
         animCircle.setStrokeWidth(4);
 
-        // Create a copy of the label for animation
+        // 애니메이션용 라벨 생성
         Label animLabel = new Label(dataLabel.getText());
-        animLabel.setStyle("-fx-font-weight: bold;");
+        animLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: white;");
 
         StackPane animPane = new StackPane();
         animPane.getChildren().addAll(animCircle, animLabel);
 
-        // Calculate positions
+        // 위치 계산
         Bounds dataBounds = dataCircle.localToScene(dataCircle.getBoundsInLocal());
         Bounds heapBounds = heapCircle.localToScene(heapCircle.getBoundsInLocal());
         Bounds containerBounds = treePane.localToScene(treePane.getBoundsInLocal());
 
-        // Position the animation pane
+        // 애니메이션 패널 위치 설정
         animPane.setLayoutX(dataBounds.getMinX() - containerBounds.getMinX());
         animPane.setLayoutY(dataBounds.getMinY() - containerBounds.getMinY());
         treePane.getChildren().add(animPane);
 
-        // Create path animation
+        // 경로 애니메이션 생성
         Path path = new Path();
         path.getElements().add(new MoveTo(0, 0));
         path.getElements().add(new LineTo(
@@ -277,44 +278,49 @@ public class HeapSortController {
             heapBounds.getMinY() - dataBounds.getMinY()
         ));
 
+        // 경로 애니메이션
         PathTransition pathTransition = new PathTransition(Duration.seconds(animationDuration), path, animPane);
         pathTransition.setOrientation(PathTransition.OrientationType.NONE);
 
-        // Add scale animation
+        // 크기 애니메이션
         ScaleTransition scaleTransition = new ScaleTransition(Duration.seconds(animationDuration), animPane);
         scaleTransition.setFromX(1.0);
         scaleTransition.setFromY(1.0);
         scaleTransition.setToX(1.2);
         scaleTransition.setToY(1.2);
 
-        // Add fade animation
+        // 회전 애니메이션
+        RotateTransition rotateTransition = new RotateTransition(Duration.seconds(animationDuration), animPane);
+        rotateTransition.setFromAngle(0);
+        rotateTransition.setToAngle(360);
+
+        // 투명도 애니메이션
         FadeTransition fadeTransition = new FadeTransition(Duration.seconds(animationDuration), animPane);
         fadeTransition.setFromValue(1.0);
         fadeTransition.setToValue(0.0);
 
-        // Play all animations together
+        // 모든 애니메이션을 함께 실행
         ParallelTransition parallelTransition = new ParallelTransition(
-            pathTransition, scaleTransition, fadeTransition
+            pathTransition, scaleTransition, rotateTransition, fadeTransition
         );
+
+        // 애니메이션 시작 전에 원본 노드 숨기기
+        dataCircle.setVisible(false);
+        dataLabel.setVisible(false);
 
         parallelTransition.setOnFinished(e -> {
             treePane.getChildren().remove(animPane);
             
-            // Remove the node from data array with fade out effect
+            // 데이터 배열에서 노드 제거 (페이드 아웃 효과)
             StackPane dataNode = (StackPane) dataArrayContainer.getChildren().get(dataIndex);
             FadeTransition removeTransition = new FadeTransition(Duration.seconds(animationDuration * 0.5), dataNode);
             removeTransition.setFromValue(1.0);
             removeTransition.setToValue(0.0);
             
             removeTransition.setOnFinished(event -> {
-                // Remove the node from the container
                 dataArrayContainer.getChildren().remove(dataNode);
-                
-                // Remove from maps
                 dataArrayCircles.remove(dataIndex);
                 dataArrayLabels.remove(dataIndex);
-                
-                // Rebuild the data array display
                 rebuildDataArray();
                 
                 if (onComplete != null) {
@@ -325,6 +331,7 @@ public class HeapSortController {
             removeTransition.play();
         });
 
+        // 애니메이션 시작
         parallelTransition.play();
     }
 
