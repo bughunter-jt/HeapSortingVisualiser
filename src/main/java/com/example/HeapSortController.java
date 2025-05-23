@@ -145,18 +145,30 @@ public class HeapSortController {
         initializeDataArray(array);
         phaseLabel.setText("Max Heap 구성 중");
         statusLabel.setText("데이터를 Max Heap에 추가하는 중...");
-        int[] currentArray = new int[0];
+        
         // 1. Max Heap 구성 단계
+        int[] currentArray = new int[0];
+        int[] remainingData = array.clone();
+        
+        // 데이터 배열에서 하나씩 가져와서 Max Heap 구성
         for (int i = 0; i < array.length; i++) {
-            currentArray = new int[i + 1];
-            System.arraycopy(array, 0, currentArray, 0, i + 1);
+            // 새 노드 추가
+            int[] newArray = new int[i + 1];
+            if (i > 0) {
+                System.arraycopy(currentArray, 0, newArray, 0, i);
+            }
+            newArray[i] = remainingData[0];  // 첫 번째 데이터 사용
+            currentArray = newArray;
             steps.add(currentArray.clone());
+            
+            // 새로 추가된 노드를 부모와 비교하며 힙 속성 유지
             int currentIndex = i;
             while (currentIndex > 0) {
                 int parentIndex = (currentIndex - 1) / 2;
-                // 비교 단계
                 steps.add(currentArray.clone());
+                
                 if (currentArray[currentIndex] > currentArray[parentIndex]) {
+                    // 교환
                     int temp = currentArray[currentIndex];
                     currentArray[currentIndex] = currentArray[parentIndex];
                     currentArray[parentIndex] = temp;
@@ -166,33 +178,53 @@ public class HeapSortController {
                     break;
                 }
             }
+            
+            // 사용한 데이터 제거
+            int[] newRemainingData = new int[remainingData.length - 1];
+            System.arraycopy(remainingData, 1, newRemainingData, 0, remainingData.length - 1);
+            remainingData = newRemainingData;
+            
+            // 데이터 배열 시각적 업데이트 (사용된 데이터는 회색으로 표시)
+            updateDataArrayVisual(array, i + 1);
         }
-        // 2. Max Heap 완성 단계(딱 한 번만)
+        
+        // 2. Max Heap 완성 단계
         steps.add(currentArray.clone());
         maxHeapLastStepIndex = steps.size() - 1;
-        // 3. 정렬 단계
+        
+        // 3. 힙 정렬 단계
         int[] heapArray = currentArray.clone();
         int heapSize = heapArray.length;
+        
         for (int i = heapSize - 1; i > 0; i--) {
-            // swap root <-> i
+            // 루트(최대값)와 마지막 노드 교환 전 상태 저장
+            steps.add(heapArray.clone());
+            
+            // 루트(최대값)와 마지막 노드 교환
             int temp = heapArray[0];
             heapArray[0] = heapArray[i];
             heapArray[i] = temp;
             steps.add(heapArray.clone());
-            // heapify
+            
+            // 힙 속성 복원
             int currentIndex = 0;
             while (true) {
                 int largest = currentIndex;
                 int left = 2 * currentIndex + 1;
                 int right = 2 * currentIndex + 2;
-                // 비교 단계
+                
+                // 비교 단계 추가
                 steps.add(heapArray.clone());
+                
+                // 현재 노드와 자식 노드들 중 최대값 찾기
                 if (left < i && heapArray[left] > heapArray[largest]) {
                     largest = left;
                 }
                 if (right < i && heapArray[right] > heapArray[largest]) {
                     largest = right;
                 }
+                
+                // 최대값이 현재 노드가 아니면 교환
                 if (largest != currentIndex) {
                     temp = heapArray[currentIndex];
                     heapArray[currentIndex] = heapArray[largest];
@@ -204,6 +236,7 @@ public class HeapSortController {
                 }
             }
         }
+        
         currentStep = 0;
         updateNavigationButtons();
         drawTree();
@@ -220,6 +253,56 @@ public class HeapSortController {
             circle.setStroke(Color.BLACK);
             
             Label label = new Label(String.valueOf(array[i]));
+            label.setStyle("-fx-font-weight: bold;");
+            
+            StackPane stackPane = new StackPane();
+            stackPane.getChildren().addAll(circle, label);
+            stackPane.setStyle("-fx-padding: 5;");
+            
+            dataArrayCircles.put(i, circle);
+            dataArrayLabels.put(i, label);
+            dataArrayContainer.getChildren().add(stackPane);
+        }
+    }
+
+    private void updateDataArray(int[] remainingData) {
+        dataArrayContainer.getChildren().clear();
+        dataArrayCircles.clear();
+        dataArrayLabels.clear();
+        
+        for (int i = 0; i < remainingData.length; i++) {
+            Circle circle = new Circle(20);
+            circle.setFill(Color.LIGHTBLUE);
+            circle.setStroke(Color.BLACK);
+            
+            Label label = new Label(String.valueOf(remainingData[i]));
+            label.setStyle("-fx-font-weight: bold;");
+            
+            StackPane stackPane = new StackPane();
+            stackPane.getChildren().addAll(circle, label);
+            stackPane.setStyle("-fx-padding: 5;");
+            
+            dataArrayCircles.put(i, circle);
+            dataArrayLabels.put(i, label);
+            dataArrayContainer.getChildren().add(stackPane);
+        }
+    }
+
+    private void updateDataArrayVisual(int[] originalArray, int usedCount) {
+        dataArrayContainer.getChildren().clear();
+        dataArrayCircles.clear();
+        dataArrayLabels.clear();
+        
+        for (int i = 0; i < originalArray.length; i++) {
+            Circle circle = new Circle(20);
+            if (i < usedCount) {
+                circle.setFill(Color.GRAY);  // 사용된 데이터는 회색으로 표시
+            } else {
+                circle.setFill(Color.LIGHTBLUE);  // 사용되지 않은 데이터는 파란색으로 표시
+            }
+            circle.setStroke(Color.BLACK);
+            
+            Label label = new Label(String.valueOf(originalArray[i]));
             label.setStyle("-fx-font-weight: bold;");
             
             StackPane stackPane = new StackPane();
@@ -514,13 +597,10 @@ public class HeapSortController {
                 // 새로운 노드가 추가되는 경우
                 if (prevArray.length < nextArray.length) {
                     int newIndex = prevArray.length;
-                    int dataArrayIndex = 0;  // 항상 첫 번째 노드부터 시작
+                    int dataArrayIndex = 0;  // 항상 첫 번째 데이터 사용
                     
-                    // 데이터 배열에서 힙으로 이동하는 애니메이션
                     animateDataToHeap(dataArrayIndex, newIndex, () -> {
-                        // 새 노드 강조 효과
                         highlightNewNode(newIndex, () -> {
-                            // 부모 노드와 비교
                             int parentIndex = (newIndex - 1) / 2;
                             if (parentIndex >= 0) {
                                 phaseLabel.setText("부모 노드와 비교 중");
@@ -584,7 +664,25 @@ public class HeapSortController {
             // 정렬 단계
             if (currentStep > maxHeapLastStepIndex) {
                 phaseLabel.setText("정렬 중");
-                statusLabel.setText("정렬 중...");
+                statusLabel.setText(String.format("정렬 중... (Step %d / %d)", 
+                    currentStep - maxHeapLastStepIndex, 
+                    steps.size() - maxHeapLastStepIndex - 1));
+                
+                // 최초 정렬 단계인 경우
+                if (currentStep == maxHeapLastStepIndex + 1) {
+                    phaseLabel.setText("최초 정렬 시작");
+                    statusLabel.setText("루트 노드(최대값)와 마지막 노드를 교환합니다.");
+                    highlightComparingNodesForSwap(0, prevArray.length - 1, () -> {
+                        animateSwap(0, prevArray.length - 1, () -> {
+                            currentStep++;
+                            updateNavigationButtons();
+                            drawTree();
+                        });
+                    });
+                    return;
+                }
+                
+                // 노드 교환 확인
                 boolean foundSwap = false;
                 for (int i = 0; i < prevArray.length; i++) {
                     if (prevArray[i] != nextArray[i]) {
@@ -605,6 +703,8 @@ public class HeapSortController {
                         }
                     }
                 }
+                
+                // 비교만 있는 경우
                 if (!foundSwap) {
                     highlightComparingNodes(prevArray, nextArray, () -> {
                         currentStep++;
