@@ -15,8 +15,8 @@
 
     <!-- Phase Status Label -->
     <HBox spacing="10" alignment="CENTER" style="-fx-background-color: #f0f0f0; -fx-padding: 10;">
-        <Label text="현재 단계:" style="-fx-font-weight: bold;"/>
-        <Label fx:id="phaseLabel" text="대기 중" style="-fx-font-weight: bold; -fx-font-size: 14;"/>
+        <Label text="Current Phase:" style="-fx-font-weight: bold;"/>
+        <Label fx:id="phaseLabel" text="Waiting" style="-fx-font-weight: bold; -fx-font-size: 14;"/>
     </HBox>
 
     <!-- Input Area -->
