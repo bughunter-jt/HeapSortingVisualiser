@@ -180,12 +180,16 @@ public class HeapSortController {
             }
             
             // 사용한 데이터 제거
-            int[] newRemainingData = new int[remainingData.length - 1];
-            System.arraycopy(remainingData, 1, newRemainingData, 0, remainingData.length - 1);
-            remainingData = newRemainingData;
+            if (remainingData.length > 1) {
+                int[] newRemainingData = new int[remainingData.length - 1];
+                System.arraycopy(remainingData, 1, newRemainingData, 0, remainingData.length - 1);
+                remainingData = newRemainingData;
+            } else {
+                remainingData = new int[0];  // 마지막 데이터를 사용한 경우 빈 배열로 설정
+            }
             
-            // 데이터 배열 시각적 업데이트 (사용된 데이터는 회색으로 표시)
-            updateDataArrayVisual(array, i + 1);
+            // 데이터 배열 시각적 업데이트 (남은 데이터만 표시)
+            updateDataArray(remainingData);
         }
         
         // 2. Max Heap 완성 단계
@@ -206,7 +210,7 @@ public class HeapSortController {
             heapArray[i] = temp;
             steps.add(heapArray.clone());
             
-            // 힙 속성 복원
+            // 힙 속성 복원 (heapify)
             int currentIndex = 0;
             while (true) {
                 int largest = currentIndex;
@@ -235,6 +239,14 @@ public class HeapSortController {
                     break;
                 }
             }
+        }
+        
+        // 4. 트리 순회 및 데이터 배열 재구성 단계
+        int[] sortedArray = new int[heapArray.length];
+        for (int i = 0; i < heapArray.length; i++) {
+            sortedArray[i] = heapArray[i];
+            steps.add(heapArray.clone());  // 현재 힙 상태 저장
+            updateDataArrayWithSortedData(sortedArray, i + 1);  // 정렬된 데이터로 배열 업데이트
         }
         
         currentStep = 0;
@@ -321,6 +333,12 @@ public class HeapSortController {
             return;
         }
 
+        // dataIndex가 유효한 범위 내에 있는지 확인
+        if (dataIndex < 0 || dataIndex >= dataArrayContainer.getChildren().size()) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+
         if (!dataArrayCircles.containsKey(dataIndex)) {
             if (onComplete != null) onComplete.run();
             return;
@@ -397,20 +415,24 @@ public class HeapSortController {
             treePane.getChildren().remove(animPane);
             
             // 데이터 배열에서 노드 제거 (페이드 아웃 효과)
-            StackPane dataNode = (StackPane) dataArrayContainer.getChildren().get(dataIndex);
-            FadeTransition removeTransition = new FadeTransition(Duration.seconds(animationDuration * 0.5), dataNode);
-            removeTransition.setFromValue(1.0);
-            removeTransition.setToValue(0.0);
-            
-            removeTransition.setOnFinished(event -> {
-                dataArrayContainer.getChildren().remove(dataNode);
-                dataArrayCircles.remove(dataIndex);
-                dataArrayLabels.remove(dataIndex);
-                rebuildDataArray();
+            if (dataIndex < dataArrayContainer.getChildren().size()) {
+                StackPane dataNode = (StackPane) dataArrayContainer.getChildren().get(dataIndex);
+                FadeTransition removeTransition = new FadeTransition(Duration.seconds(animationDuration * 0.5), dataNode);
+                removeTransition.setFromValue(1.0);
+                removeTransition.setToValue(0.0);
+                
+                removeTransition.setOnFinished(event -> {
+                    dataArrayContainer.getChildren().remove(dataNode);
+                    dataArrayCircles.remove(dataIndex);
+                    dataArrayLabels.remove(dataIndex);
+                    rebuildDataArray();
+                    if (onComplete != null) onComplete.run();
+                });
+                
+                removeTransition.play();
+            } else {
                 if (onComplete != null) onComplete.run();
-            });
-            
-            removeTransition.play();
+            }
         });
 
         parallelTransition.play();
@@ -597,26 +619,53 @@ public class HeapSortController {
                 // 새로운 노드가 추가되는 경우
                 if (prevArray.length < nextArray.length) {
                     int newIndex = prevArray.length;
-                    int dataArrayIndex = 0;  // 항상 첫 번째 데이터 사용
                     
-                    animateDataToHeap(dataArrayIndex, newIndex, () -> {
-                        highlightNewNode(newIndex, () -> {
-                            int parentIndex = (newIndex - 1) / 2;
-                            if (parentIndex >= 0) {
-                                phaseLabel.setText("부모 노드와 비교 중");
-                                statusLabel.setText("새로 추가된 노드를 부모 노드와 비교하는 중...");
-                                highlightComparingNodesForSwap(newIndex, parentIndex, () -> {
+                    // 데이터 배열이 비어있는 경우 처리
+                    if (dataArrayContainer.getChildren().isEmpty()) {
+                        currentStep++;
+                        updateNavigationButtons();
+                        drawTree();
+                        return;
+                    }
+
+                    // 실제로 data array에 남아있는 값 중, nextArray[newIndex]와 같은 값을 찾아 인덱스를 사용
+                    int valueToAdd = nextArray[newIndex];
+                    int foundIndex = -1;
+                    for (int i = 0; i < dataArrayContainer.getChildren().size(); i++) {
+                        Label label = (Label) ((StackPane) dataArrayContainer.getChildren().get(i)).getChildren().get(1);
+                        if (label.getText().equals(String.valueOf(valueToAdd))) {
+                            foundIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    // foundIndex가 유효한 범위 내에 있는지 확인
+                    if (foundIndex >= 0 && foundIndex < dataArrayContainer.getChildren().size()) {
+                        int dataArrayIndex = foundIndex;
+                        animateDataToHeap(dataArrayIndex, newIndex, () -> {
+                            highlightNewNode(newIndex, () -> {
+                                int parentIndex = (newIndex - 1) / 2;
+                                if (parentIndex >= 0) {
+                                    phaseLabel.setText("부모 노드와 비교 중");
+                                    statusLabel.setText("새로 추가된 노드를 부모 노드와 비교하는 중...");
+                                    highlightComparingNodesForSwap(newIndex, parentIndex, () -> {
+                                        currentStep++;
+                                        updateNavigationButtons();
+                                        drawTree();
+                                    });
+                                } else {
                                     currentStep++;
                                     updateNavigationButtons();
                                     drawTree();
-                                });
-                            } else {
-                                currentStep++;
-                                updateNavigationButtons();
-                                drawTree();
-                            }
+                                }
+                            });
                         });
-                    });
+                    } else {
+                        // 유효한 인덱스를 찾지 못한 경우 다음 단계로 진행
+                        currentStep++;
+                        updateNavigationButtons();
+                        drawTree();
+                    }
                     return;
                 }
                 
@@ -951,5 +1000,32 @@ public class HeapSortController {
             sb.append(array[i]);
         }
         return sb.toString();
+    }
+
+    private void updateDataArrayWithSortedData(int[] sortedArray, int currentIndex) {
+        dataArrayContainer.getChildren().clear();
+        dataArrayCircles.clear();
+        dataArrayLabels.clear();
+        
+        for (int i = 0; i < sortedArray.length; i++) {
+            Circle circle = new Circle(20);
+            if (i < currentIndex) {
+                circle.setFill(Color.GREEN);  // 정렬된 데이터는 초록색으로 표시
+            } else {
+                circle.setFill(Color.LIGHTBLUE);  // 아직 정렬되지 않은 데이터는 파란색으로 표시
+            }
+            circle.setStroke(Color.BLACK);
+            
+            Label label = new Label(String.valueOf(sortedArray[i]));
+            label.setStyle("-fx-font-weight: bold;");
+            
+            StackPane stackPane = new StackPane();
+            stackPane.getChildren().addAll(circle, label);
+            stackPane.setStyle("-fx-padding: 5;");
+            
+            dataArrayCircles.put(i, circle);
+            dataArrayLabels.put(i, label);
+            dataArrayContainer.getChildren().add(stackPane);
+        }
     }
 } 
