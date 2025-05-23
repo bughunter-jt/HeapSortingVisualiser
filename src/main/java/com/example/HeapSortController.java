@@ -235,17 +235,41 @@ public class HeapSortController {
     }
 
     private void animateDataToHeap(int dataIndex, int heapIndex, Runnable onComplete) {
-        if (!dataArrayCircles.containsKey(dataIndex) || !nodeCircles.containsKey(heapIndex)) {
+        System.out.println("animateDataToHeap 호출됨");
+        
+        // 데이터 배열 범위 체크
+        if (dataIndex < 0 || dataIndex >= dataArrayContainer.getChildren().size()) {
+            System.out.println("데이터 배열 인덱스 범위 초과: " + dataIndex);
             if (onComplete != null) {
+                System.out.println("onComplete 호출됨");
                 onComplete.run();
             }
             return;
         }
 
+        // 데이터 배열의 노드가 존재하는지 체크
+        if (!dataArrayCircles.containsKey(dataIndex)) {
+            System.out.println("데이터 배열에서 노드를 찾을 수 없음: " + dataIndex);
+            if (onComplete != null) {
+                System.out.println("onComplete 호출됨");
+                onComplete.run();
+            }
+            return;
+        }
+
+        // 힙 트리의 목적지 위치가 유효한지 체크
+        if (heapIndex < 0) {
+            System.out.println("힙 트리 인덱스가 유효하지 않음: " + heapIndex);
+            if (onComplete != null) {
+                System.out.println("onComplete 호출됨");
+                onComplete.run();
+            }
+            return;
+        }
+
+        System.out.println("dataIndex: " + dataIndex + ", heapIndex: " + heapIndex);
         Circle dataCircle = dataArrayCircles.get(dataIndex);
-        Circle heapCircle = nodeCircles.get(heapIndex);
         Label dataLabel = dataArrayLabels.get(dataIndex);
-        Label heapLabel = nodeLabels.get(heapIndex);
 
         // 애니메이션용 원 생성
         Circle animCircle = new Circle(dataCircle.getRadius());
@@ -262,8 +286,11 @@ public class HeapSortController {
 
         // 위치 계산
         Bounds dataBounds = dataCircle.localToScene(dataCircle.getBoundsInLocal());
-        Bounds heapBounds = heapCircle.localToScene(heapCircle.getBoundsInLocal());
         Bounds containerBounds = treePane.localToScene(treePane.getBoundsInLocal());
+
+        // 힙 트리의 목적지 위치 계산
+        double heapX = calculateHeapNodeX(heapIndex);
+        double heapY = calculateHeapNodeY(heapIndex);
 
         // 애니메이션 패널 위치 설정
         animPane.setLayoutX(dataBounds.getMinX() - containerBounds.getMinX());
@@ -274,8 +301,8 @@ public class HeapSortController {
         Path path = new Path();
         path.getElements().add(new MoveTo(0, 0));
         path.getElements().add(new LineTo(
-            heapBounds.getMinX() - dataBounds.getMinX(),
-            heapBounds.getMinY() - dataBounds.getMinY()
+            heapX - (dataBounds.getMinX() - containerBounds.getMinX()),
+            heapY - (dataBounds.getMinY() - containerBounds.getMinY())
         ));
 
         // 경로 애니메이션
@@ -311,28 +338,52 @@ public class HeapSortController {
         parallelTransition.setOnFinished(e -> {
             treePane.getChildren().remove(animPane);
             
-            // 데이터 배열에서 노드 제거 (페이드 아웃 효과)
-            StackPane dataNode = (StackPane) dataArrayContainer.getChildren().get(dataIndex);
-            FadeTransition removeTransition = new FadeTransition(Duration.seconds(animationDuration * 0.5), dataNode);
-            removeTransition.setFromValue(1.0);
-            removeTransition.setToValue(0.0);
-            
-            removeTransition.setOnFinished(event -> {
-                dataArrayContainer.getChildren().remove(dataNode);
-                dataArrayCircles.remove(dataIndex);
-                dataArrayLabels.remove(dataIndex);
-                rebuildDataArray();
+            try {
+                // 데이터 배열에서 노드 제거 (페이드 아웃 효과)
+                StackPane dataNode = (StackPane) dataArrayContainer.getChildren().get(dataIndex);
+                FadeTransition removeTransition = new FadeTransition(Duration.seconds(animationDuration * 0.5), dataNode);
+                removeTransition.setFromValue(1.0);
+                removeTransition.setToValue(0.0);
                 
+                removeTransition.setOnFinished(event -> {
+                    dataArrayContainer.getChildren().remove(dataNode);
+                    dataArrayCircles.remove(dataIndex);
+                    dataArrayLabels.remove(dataIndex);
+                    rebuildDataArray();
+                    
+                    if (onComplete != null) {
+                        System.out.println("onComplete 호출됨");
+                        onComplete.run();
+                    }
+                });
+                
+                removeTransition.play();
+            } catch (IndexOutOfBoundsException ex) {
+                System.out.println("노드 제거 중 오류 발생: " + ex.getMessage());
                 if (onComplete != null) {
+                    System.out.println("onComplete 호출됨");
                     onComplete.run();
                 }
-            });
-            
-            removeTransition.play();
+            }
         });
 
         // 애니메이션 시작
         parallelTransition.play();
+    }
+
+    private double calculateHeapNodeX(int heapIndex) {
+        int level = (int) (Math.log(heapIndex + 1) / Math.log(2));
+        int nodesInLevel = (int) Math.pow(2, level);
+        int positionInLevel = heapIndex - (int) Math.pow(2, level) + 1;
+        double paneWidth = treePane.getWidth();
+        double horizontalSpacing = paneWidth / (nodesInLevel + 1);
+        return horizontalSpacing * (positionInLevel + 1);
+    }
+
+    private double calculateHeapNodeY(int heapIndex) {
+        int level = (int) (Math.log(heapIndex + 1) / Math.log(2));
+        int levelHeight = 80;
+        return 50 + level * levelHeight;
     }
 
     private void rebuildDataArray() {
