@@ -1,2 +1,3 @@
+module-info.class
 com\example\HeapSortController.class
 com\example\HeapSortVisualizer.class

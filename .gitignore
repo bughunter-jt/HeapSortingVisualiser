@@ -1,0 +1,49 @@
+# Maven
+.m2/
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.properties
+!src/main/resources/application.properties
+
+# Build
+build/
+out/
+dist/
+
+# Security
+**/settings.xml
+**/credentials.xml
+**/secrets.xml
+**/*.pem
+**/*.key
+**/*.keystore
+**/*.jks
+**/*.p12
+**/*.pfx
+custom-jre/bin/api-ms-win-core-console-l1-1-0.dll
+*.dll
+*.exe
+custom-jre/bin/runapp
+/custom-jre

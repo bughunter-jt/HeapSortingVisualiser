@@ -1,0 +1,7 @@
+jlink ^
+  --module-path "%JAVA_HOME%\jmods;C:\openjfx-21.0.7_windows-x64_bin-jmods\javafx-jmods-21.0.7" ^
+  --add-modules javafx.controls,javafx.fxml,javafx.graphics,javafx.base ^
+  --add-modules heap.sort.visualizer ^
+  --output custom-jre ^
+  --launcher runapp=heap.sort.visualizer/com.example.HeapSortVisualizer ^
+  --strip-debug --compress=2 --no-header-files --no-man-pages
